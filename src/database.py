@@ -8,7 +8,14 @@ mongo_client = MongoClient("mongodb+srv://db-admin-satyaki:admin@cluster0.kkrlk.
                      "=majority")
 
 
+
 def test():
     db = mongo_client.Quarter_2
     collection = db.conversions_2
     #pprint.pprint(collection.find_one())
+
+
+
+
+def access_banner():
+    pass
