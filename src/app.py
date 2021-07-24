@@ -21,7 +21,7 @@ def print_name(name):
     return 'Hi, {}'.format(name)
 
 
-@app.route('/banner/<banner_id>')
+@app.route('/test/<banner_id>')
 def banner_disp(banner_id):
 
     full_filename = IMAGE_PATH + "/image_{}.png".format(banner_id)
@@ -40,11 +40,34 @@ def handle_campaign(id):
         X = fetch_all_banners_for_campaign(db_client, campaign_id)
 
         banners_to_display = handle_no_of_banners(X)
+        # Padding list with zeroes
+        banners_to_display += [0] * (10 - len(banners_to_display))
 
         filename0 = IMAGE_PATH + "/image_{}.png".format(banners_to_display[0])
+        filename1 = IMAGE_PATH + "/image_{}.png".format(banners_to_display[1])
+        filename2 = IMAGE_PATH + "/image_{}.png".format(banners_to_display[2])
+        filename3 = IMAGE_PATH + "/image_{}.png".format(banners_to_display[3])
+        filename4 = IMAGE_PATH + "/image_{}.png".format(banners_to_display[4])
+
+        filename5 = IMAGE_PATH + "/image_{}.png".format(banners_to_display[5])
+        filename6 = IMAGE_PATH + "/image_{}.png".format(banners_to_display[6])
+        filename7 = IMAGE_PATH + "/image_{}.png".format(banners_to_display[7])
+        filename8 = IMAGE_PATH + "/image_{}.png".format(banners_to_display[8])
+        filename9 = IMAGE_PATH + "/image_{}.png".format(banners_to_display[9])
 
 
-        return 'Hello World!'
+        return render_template("index.html", image0 = filename0,
+                               image1 = filename1,
+                               image2 = filename2,
+                               image3 = filename3,
+                               image4 = filename4,
+
+                               image5 = filename5,
+                               image6 = filename6,
+                               image7 = filename7,
+                               image8 = filename8,
+                               image9 = filename9,
+                               )
 
     elif now.minute in range(16, 30):
 
