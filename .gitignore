@@ -1,8 +1,8 @@
 /MyPlanning.txt
 /MyNotes.txt
-/src/templates/nn.html
-/src/templates/scratch.html
-/src/scratch.py
+/dev/templates/nn.html
+/dev/templates/scratch.html
+/dev/scratch.py
 /FlaskAppProject.iml
 /.idea/
 .DS_Store

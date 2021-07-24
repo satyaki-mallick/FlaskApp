@@ -27,7 +27,7 @@ def banner_disp(banner_id):
     full_filename = IMAGE_PATH + "/image_{}.png".format(banner_id)
     print(full_filename)
     # return render_template("index.html", user_image = full_filename)
-    return render_template("index.html", user_image = full_filename)
+    return render_template("scratch.html", user_image = full_filename)
 
 
 @app.route('/campaigns/<id>')
