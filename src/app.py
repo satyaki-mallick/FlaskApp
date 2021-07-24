@@ -1,3 +1,4 @@
+import random
 
 from flask import Flask, render_template
 from database import mongo_client
@@ -5,6 +6,7 @@ from datetime import datetime
 import database
 import os
 from pprint import pprint
+import random
 
 app = Flask(__name__)
 IMAGE_PATH = 'https://campaign-banner-bucket.s3.us-west-2.amazonaws.com'
@@ -37,7 +39,10 @@ def handle_campaign(id):
 
         X = fetch_all_banners_for_campaign(db_client, campaign_id)
 
-        handle_no_of_banners(X)
+        banners_to_display = handle_no_of_banners(X)
+
+        filename0 = IMAGE_PATH + "/image_{}.png".format(banners_to_display[0])
+
 
         return 'Hello World!'
 
@@ -53,6 +58,7 @@ def handle_campaign(id):
 
 
 def fetch_all_banners_for_campaign(db_client, campaign_id):
+
     conversions_collection = db_client.conversions_1
     clicks_collection = db_client.clicks_1
     conversions = conversions_collection.find().sort([("revenue", -1)])
@@ -65,25 +71,50 @@ def fetch_all_banners_for_campaign(db_client, campaign_id):
         key = item['click_id']
         my_dict[key] = item
 
-    pprint(my_dict)
     for item in conversions:
 
         key = item['click_id']
-        print('conversion_click_id' + str(key))
         revenue = item['revenue']
-        print('revenue' + str(revenue))
         if key in my_dict.keys():
             val = my_dict[key]
             tup = val['banner_id'], revenue
             banner_revenue_list.append(tup)
 
-    print("Full Tuple " + str(banner_revenue_list))
-    return tup
+    return banner_revenue_list
 
 
 def handle_no_of_banners(X):
-    pass
+    if len(X) >= 10:
+        top_10 = X[:10]
+        random.shuffle(top_10)
 
+        banner_ids = [item[0] for item in top_10]
+
+        return banner_ids
+
+    elif len(X) in range(5,10):
+        top_X = X[:len(X)]
+        random.shuffle(top_X)
+
+        return top_X
+
+    elif len(X) in range(1,5):
+        top_X = X[:len(X)]
+        random.shuffle(top_X)
+
+        banners_remain = 5 - len(X)
+        # TODO: Find these many banners with most clicks
+        # Append to top_X
+        # Return top_X
+
+        pass
+    else:
+        # TODO: Show top 5 banners based on clicks
+        # If this is less than 5
+        # Add random banners to it
+
+        pass
+    pass
 
 
 if __name__ == '__main__':
