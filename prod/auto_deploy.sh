@@ -24,5 +24,5 @@ aws lightsail push-container-image --service-name flask-service --label flask-co
 aws lightsail create-container-service-deployment --service-name flask-service --containers file://containers.json --public-endpoint file://public-endpoint.json
 
 
-# After running above command, run below command to check "state"(should be ACTIVE) and find the public URL
+# After running above command, run below command to check "nextDeployment:state"(should be ACTIVE) and find the public URL
 # aws lightsail get-container-services --service-name flask-service
