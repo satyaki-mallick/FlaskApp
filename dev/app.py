@@ -1,5 +1,4 @@
 import random
-
 from flask import Flask, render_template
 from database import mongo_client
 from datetime import datetime
@@ -7,9 +6,22 @@ import database
 import os
 from pprint import pprint
 import random
+import redis
 
 app = Flask(__name__)
 IMAGE_PATH = 'https://campaign-banner-bucket.s3.us-west-2.amazonaws.com'
+
+# redis_client = redis.Redis(host='redis-18192.c1.us-west-2-2.ec2.cloud.redislabs.com',
+#                            password='iLSHqNBV7tRi47OF5kPB5CglDc47TktX',
+#                            port=18192, decode_responses=True)
+
+redis_client = redis.Redis(host='localhost', port=6379, decode_responses=True)
+
+# redis_client = redis.Redis(host='redis-service.9u64k1kqvn9po.us-west-2.cs.amazonlightsail.com',
+#                            port=6379, decode_responses=True)
+#
+
+
 
 
 @app.route('/')
@@ -30,27 +42,38 @@ def banner_disp(banner_id):
     return render_template("scratch.html", user_image=full_filename)
 
 
-@app.route('/campaigns/<id>')
-def handle_campaign(id):
+@app.route('/campaign/<some_id>')
+def handle_campaign(some_id):
     now = datetime.utcnow()
-    campaign_id = int(id)
-    db_client = mongo_client.TestDb
-    if now.minute in range(0, 60):
+    campaign_id = int(some_id)
+
+    if campaign_id not in range(1, 51):
+        return "Campaign does not exist", 400
+
+    db_client = mongo_client.MyFirstDatabase
+    banners_worthy_of_display = []
+    if now.minute in range(0, 15):
         print('Executing Quarter1 code block')
 
-        x_banners, banner_click_counter = fetch_all_banners_for_given_campaign(db_client, campaign_id)
-
+        x_banners, banner_click_counter = fetch_all_banners_for_given_campaign(db_client, campaign_id , 1)
         banners_worthy_of_display = render_banners_for_display(x_banners, banner_click_counter)
 
-    elif now.minute in range(16, 30):
+    elif now.minute in range(15, 30):
         print('Executing Quarter2 code block')
-        pass
-    elif now.minute in range(31, 45):
+
+        x_banners, banner_click_counter = fetch_all_banners_for_given_campaign(db_client, campaign_id , 2)
+        banners_worthy_of_display = render_banners_for_display(x_banners, banner_click_counter)
+
+    elif now.minute in range(30, 45):
         print('Executing Quarter3 code block')
-        pass
-    elif now.minute in range(46, 60):
+        x_banners, banner_click_counter = fetch_all_banners_for_given_campaign(db_client, campaign_id , 3)
+        banners_worthy_of_display = render_banners_for_display(x_banners, banner_click_counter)
+
+    elif now.minute in range(45, 60):
         print('Executing Quarter4 code block')
-        pass
+
+        x_banners, banner_click_counter = fetch_all_banners_for_given_campaign(db_client, campaign_id , 4)
+        banners_worthy_of_display = render_banners_for_display(x_banners, banner_click_counter)
 
     mongo_client.close()
 
@@ -80,43 +103,63 @@ def handle_campaign(id):
                            image7=filename7,
                            image8=filename8,
                            image9=filename9,
-                           )
+                           ), 200
 
 
-def fetch_all_banners_for_given_campaign(db_client, campaign_id):
-    conversions_collection = db_client.conversions_1
-    clicks_collection = db_client.clicks_1
-    conversions = conversions_collection.find().sort([("revenue", -1)]).limit(100)
+def fetch_all_banners_for_given_campaign(db_client, campaign_id, time_id):
+
+    conversions_id = 'conversions_' + str(time_id)
+    clicks_id = 'clicks_' + str(time_id)
+    conversions_collection = db_client[conversions_id]
+    clicks_collection = db_client[clicks_id]
+    conversions = conversions_collection.find().sort([("revenue", -1)])
     clicks = clicks_collection.find({"campaign_id": campaign_id})
 
     click_hash_table = {}
     banners_ordered_by_revenue = []
     banner_click_counter = {}
 
-    for item in clicks:
-        key = item['click_id']
-        click_hash_table[key] = item
+    redis_key_click = "click_" + str(campaign_id) + "_" + str(time_id)
+    redis_key_banner = "banner_" + str(campaign_id) + "_" + str(time_id)
 
-        key = item['banner_id']
-        if key in banner_click_counter:
-            banner_click_counter[key] += 1
-        else:
-            banner_click_counter[key] = 1
+    if not redis_client.hgetall(redis_key_click):
+        print("Can't find Data in Cache")
+        for item in clicks:
+            key = str(item['click_id'])
+            click_hash_table[key] = str(item['banner_id'])
+
+            key = item['banner_id']
+            if key in banner_click_counter:
+                banner_click_counter[key] += 1
+            else:
+                banner_click_counter[key] = 1
+
+        print("Storing Click-Banner hashmap to Redis for campaign {} with key: {}".format(campaign_id, redis_key_click))
+        redis_client.hmset(redis_key_click, click_hash_table)
+
+        print("Storing Banner-Counter hashmap to Redis for campaign {} with key: {}".format(campaign_id, redis_key_banner))
+        redis_client.hmset(redis_key_banner, banner_click_counter)
+
+    else:
+        print("Fetching from Cache")
+
+        click_hash_table = redis_client.hgetall(redis_key_click)
+        banner_click_counter = redis_client.hgetall(redis_key_banner)
 
     for item in conversions:
 
         click_that_converted = item['click_id']
-        if click_that_converted in click_hash_table.keys():
-            corresponding_details = click_hash_table[click_that_converted]
-            banner_of_the_converted_click = corresponding_details['banner_id']
+        if str(click_that_converted) in click_hash_table.keys():
+            banner_of_the_converted_click = click_hash_table.get(str(click_that_converted))
             banners_ordered_by_revenue.append(banner_of_the_converted_click)
 
-    print(banners_ordered_by_revenue)
     return banners_ordered_by_revenue, banner_click_counter
 
 
 def render_banners_for_display(banners_ordered_by_revenue, banner_click_counter):
     if len(banners_ordered_by_revenue) >= 10:
+
+        print('Banners by Revenue >= 10')
         top_10_grossing = banners_ordered_by_revenue[:10]
         random.shuffle(top_10_grossing)
 
@@ -125,14 +168,17 @@ def render_banners_for_display(banners_ordered_by_revenue, banner_click_counter)
         # find_banners_with_most_clicks(banner_click_counter, 3)
 
     elif len(banners_ordered_by_revenue) in range(5, 10):
+
+        print('Banners by Revenue X: 5 <= X < 10')
         top_grossing = banners_ordered_by_revenue.copy()
         random.shuffle(top_grossing)
 
         return top_grossing
 
     elif len(banners_ordered_by_revenue) in range(1, 5):
-        top_grossing = banners_ordered_by_revenue.copy()
 
+        print('Banners by Revenue X: 1 <= X < 5')
+        top_grossing = banners_ordered_by_revenue.copy()
         remaining_banners_to_display = 5 - len(top_grossing)
         find_banners_with_most_clicks(banner_click_counter, remaining_banners_to_display, top_grossing)
 
@@ -140,9 +186,8 @@ def render_banners_for_display(banners_ordered_by_revenue, banner_click_counter)
         return top_grossing
 
     else:
-        # TODO: Show top 5 banners based on clicks
-        # If this is less than 5
-        # Add random banners to it
+
+        print('Banners by Revenue X: X=0')
         top_grossing = []
         find_banners_with_most_clicks(banner_click_counter, 5, top_grossing)
         random.shuffle(top_grossing)
@@ -156,18 +201,31 @@ def find_banners_with_most_clicks(banner_click_counter, banners_remain, top_gros
     new_banners = []
     use_length = min(len(banner_click_counter), banners_remain)
 
+    def myfunc(value):
+        return int(value)
+
     for i in range(use_length):
         key = max(banner_click_counter, key=banner_click_counter.get)
+
+        # key = max(banner_click_counter, key=lambda x: int(x.get))
         new_banners.append(key)
 
         banner_click_counter.pop(key)
 
     # Append random banners if enough most clicked banners not found.
+
+    print('Banners by Clicks: ' + str(use_length))
     top_grossing += new_banners
 
+    c = 0
     while len(top_grossing) < 5:
         top_grossing.append(random.randint(100, 500))
+        c += 1
+    print('Random Banners: ' + str(c))
 
 
 if __name__ == '__main__':
     app.run(debug=True)
+    # app.run(host='0.0.0.0', port=5000)
+    # from waitress import serve
+    # serve(app, host="0.0.0.0", port=5000)

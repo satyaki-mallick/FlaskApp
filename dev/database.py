@@ -10,12 +10,13 @@ mongo_client = MongoClient("mongodb+srv://db-admin-satyaki:admin@cluster0.kkrlk.
 
 
 def test():
-    db = mongo_client.MyFirstDatabase
-    collection = db.conversions_2
-    #pprint.pprint(collection.find_one())
+    time_id = 2
+    db = mongo_client.TestDb
+    conversions_id = 'conversions_' + str(time_id)
+    clicks_id = 'clicks_' + str(time_id)
+    collection = db[conversions_id]
+
+    pprint.pprint(collection.find_one())
 
 
 
-
-def access_banner():
-    pass
