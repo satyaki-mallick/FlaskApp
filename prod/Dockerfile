@@ -15,11 +15,13 @@ RUN pip install -r requirements.txt
 
 # Copy the content of the local src directory to the working directory
 COPY app.py .
-COPY database.py .
+COPY app_without_redis.py .
+COPY db_connection.py .
 
 # Create template directory
 RUN mkdir templates
 COPY templates/ ./templates/
 
 # Specify the command to run on container start
-CMD [ "python", "./app.py" ]
+# CMD ["python", "./app.py" ]
+CMD ["python", "./app_without_redis.py" ]
