@@ -1,0 +1,8 @@
+{
+  "redis": {
+    "image": ":redis-service.redis-container.6",
+    "ports": {
+      "6379": "HTTP"
+    }
+  }
+}

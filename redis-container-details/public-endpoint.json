@@ -1,0 +1,4 @@
+{
+  "containerName": "redis",
+  "containerPort": 6379
+}
