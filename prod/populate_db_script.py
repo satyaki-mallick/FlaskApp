@@ -21,14 +21,14 @@ def mongoimport(csv_path, db_name, coll_name):
     if not existing_df:
         coll = db[coll_name]
         payload = json.loads(new_df.to_json(orient='records'))
-        coll.remove()
         coll.insert_many(payload)
+        return "All items in csv inserted"
 
     else:
         existing_df = pd.DataFrame(list(db[coll_name].find()))
         del existing_df['_id']
 
-        if new_df.index.names != existing_df.index.names:
+        if new_df.columns.values.tolist() != existing_df.columns.values.tolist():
             print("Column names do not match")
 
             log = {"file_path": csv_path,
@@ -36,6 +36,7 @@ def mongoimport(csv_path, db_name, coll_name):
                    "action": "Rejected"
                    }
             log_collection.insert_one(log)
+            return "Column names do not match"
 
         elif new_df.equals(existing_df):
             print("csv is already uploaded")
@@ -45,6 +46,7 @@ def mongoimport(csv_path, db_name, coll_name):
                    "action": "Rejected"
                    }
             log_collection.insert_one(log)
+            return "csv is already uploaded"
 
         else:
             merged_df = existing_df.merge(new_df, indicator=True, how='outer')
@@ -61,6 +63,7 @@ def mongoimport(csv_path, db_name, coll_name):
                        "action": "DB data was not changed"
                        }
                 log_collection.insert_one(log)
+                return "DB contains extra items than is given by the csv. DB data was not changed"
 
             else:
                 existing_collection.insert_many(payload)
@@ -74,6 +77,7 @@ def mongoimport(csv_path, db_name, coll_name):
                        "action": message
                        }
                 log_collection.insert_one(log)
+                return message
 
 
 if __name__ == "__main__":
