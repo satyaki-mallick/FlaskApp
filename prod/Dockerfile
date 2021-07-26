@@ -15,7 +15,6 @@ RUN pip install -r requirements.txt
 
 # Copy the content of the local src directory to the working directory
 COPY app.py .
-COPY app_without_redis.py .
 COPY db_connection.py .
 
 # Create template directory
