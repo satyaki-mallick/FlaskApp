@@ -13,7 +13,7 @@ docker run -p 5000:5000 -e PYTHONUNBUFFERED=1 -d flask-container
 
 
 # Run below command only first time to create container in Lightsail
-#aws lightsail create-container-service --service-name flask-service --power micro --scale 1
+aws lightsail create-container-service --service-name flask-service --power micro --scale 1
 
 
 # Push container image to lightsail

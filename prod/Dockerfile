@@ -23,5 +23,4 @@ RUN mkdir templates
 COPY templates/ ./templates/
 
 # Specify the command to run on container start
-# CMD ["python", "./app.py" ]
-CMD ["python", "./app_without_redis.py" ]
+CMD ["python", "./app.py" ]

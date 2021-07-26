@@ -1,9 +1,8 @@
 
-
 from flask import Flask, render_template
 from datetime import datetime
 import random
-from db_connection import mongo_client
+from db_connection import mongo_client, redis_client
 
 
 app = Flask(__name__)
@@ -108,21 +107,35 @@ def fetch_all_banners_for_given_campaign(db_client, campaign_id, time_id):
     redis_key_click = "click_" + str(campaign_id) + "_" + str(time_id)
     redis_key_banner = "banner_" + str(campaign_id) + "_" + str(time_id)
 
-    for item in clicks:
-        key = item['click_id']
-        click_hash_table[key] = item['banner_id']
+    if not redis_client.hgetall(redis_key_click):
+        print("Can't find Data in Cache")
+        for item in clicks:
+            key = str(item['click_id'])
+            click_hash_table[key] = str(item['banner_id'])
 
-        key = item['banner_id']
-        if key in banner_click_counter:
-            banner_click_counter[key] += 1
-        else:
-            banner_click_counter[key] = 1
+            key = item['banner_id']
+            if key in banner_click_counter:
+                banner_click_counter[key] += 1
+            else:
+                banner_click_counter[key] = 1
+
+        print("Storing Click-Banner hashmap to Redis for campaign {} with key: {}".format(campaign_id, redis_key_click))
+        redis_client.hmset(redis_key_click, click_hash_table)
+
+        print("Storing Banner-Counter hashmap to Redis for campaign {} with key: {}".format(campaign_id, redis_key_banner))
+        redis_client.hmset(redis_key_banner, banner_click_counter)
+
+    else:
+        print("Fetching from Cache")
+
+        click_hash_table = redis_client.hgetall(redis_key_click)
+        banner_click_counter = redis_client.hgetall(redis_key_banner)
 
     for item in conversions:
 
         click_that_converted = item['click_id']
-        if click_that_converted in click_hash_table.keys():
-            banner_of_the_converted_click = click_hash_table.get(click_that_converted)
+        if str(click_that_converted) in click_hash_table.keys():
+            banner_of_the_converted_click = click_hash_table.get(str(click_that_converted))
             banners_ordered_by_revenue.append(banner_of_the_converted_click)
 
     print("Banners from high revenue: " + str(len(banners_ordered_by_revenue)))

@@ -1,9 +1,18 @@
 
-
 from flask import Flask, render_template
 from datetime import datetime
 import random
-from db_connection import mongo_client
+from functools import lru_cache
+# from db_connection import mongo_client, redis_client
+from time import time
+
+from pymongo import MongoClient
+import redis
+mongo_client = MongoClient("mongodb+srv://db-admin-satyaki:admin@cluster0.kkrlk.mongodb.net/"
+                           "MyFirstDatabase?retryWrites=true&w=majority")
+
+# Localhost connection
+redis_client = redis.Redis(host='localhost', port=6379, decode_responses=True)
 
 
 app = Flask(__name__)
@@ -92,6 +101,7 @@ def handle_campaign(some_id):
                            ), 200
 
 
+
 def fetch_all_banners_for_given_campaign(db_client, campaign_id, time_id):
 
     conversions_id = 'conversions_' + str(time_id)
@@ -101,31 +111,52 @@ def fetch_all_banners_for_given_campaign(db_client, campaign_id, time_id):
     conversions = conversions_collection.find().sort([("revenue", -1)])
     clicks = clicks_collection.find({"campaign_id": campaign_id})
 
-    click_hash_table = {}
     banners_ordered_by_revenue = []
-    banner_click_counter = {}
 
-    redis_key_click = "click_" + str(campaign_id) + "_" + str(time_id)
-    redis_key_banner = "banner_" + str(campaign_id) + "_" + str(time_id)
+    key_click = "click_" + str(campaign_id) + "_" + str(time_id)
+    key_banner = "banner_" + str(campaign_id) + "_" + str(time_id)
 
-    for item in clicks:
-        key = item['click_id']
-        click_hash_table[key] = item['banner_id']
+    @lru_cache(maxsize=1024)
+    def cached_get_click_hash_table(cache_key):
 
-        key = item['banner_id']
-        if key in banner_click_counter:
-            banner_click_counter[key] += 1
-        else:
-            banner_click_counter[key] = 1
+        temp_hash_table = {}
+        for item in clicks:
+            key = str(item['click_id'])
+            temp_hash_table[key] = str(item['banner_id'])
+
+        return temp_hash_table
+
+    @lru_cache(maxsize=None)
+    def cached_get_banner_click_counter(cache_key):
+
+        temp_hash_table = {}
+        for item in clicks:
+            key = item['banner_id']
+            if key in temp_hash_table:
+                temp_hash_table[key] += 1
+            else:
+                temp_hash_table[key] = 1
+
+        return temp_hash_table
+
+    print("Start fetching Click Hash Table")
+    print(time())
+    click_hash_table = cached_get_click_hash_table(key_click)
+    print("Fetched Click Hash Table for campaign {} with key: {}".format(campaign_id, key_click))
+    print(time())
+
+
+    print("Start fetching Banner Click Counter")
+    banner_click_counter = cached_get_banner_click_counter(key_banner)
+    print("Fetched Banner Click Counter for campaign {} with key: {}".format(campaign_id, key_banner))
 
     for item in conversions:
 
         click_that_converted = item['click_id']
-        if click_that_converted in click_hash_table.keys():
-            banner_of_the_converted_click = click_hash_table.get(click_that_converted)
+        if str(click_that_converted) in click_hash_table.keys():
+            banner_of_the_converted_click = click_hash_table.get(str(click_that_converted))
             banners_ordered_by_revenue.append(banner_of_the_converted_click)
 
-    print("Banners from high revenue: " + str(len(banners_ordered_by_revenue)))
     return banners_ordered_by_revenue, banner_click_counter
 
 
@@ -173,6 +204,9 @@ def find_banners_with_most_clicks(banner_click_counter, banners_remain, top_gros
 
     new_banners = []
     use_length = min(len(banner_click_counter), banners_remain)
+
+    def myfunc(value):
+        return int(value)
 
     for i in range(use_length):
         key = max(banner_click_counter, key=banner_click_counter.get)
